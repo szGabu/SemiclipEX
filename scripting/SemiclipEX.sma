@@ -8,9 +8,11 @@
 #include <fakemeta>
 #include <hamsandwich>
 #include <SemiclipEX_const>
-#tryinclude <reapi>
-#if !defined _reapi_included
-#include <orpheu>
+//#tryinclude <reapi>
+#tryinclude <orpheu>
+
+#if !defined _orpheu_included && !defined _reapi_included
+#error "At least ReAPI or Orpheu are required for SemiclipEX to work. Please install one of them."
 #endif
 
 new bool:g_bShouldSemiClip[MAX_EDICTS];
