@@ -14,9 +14,10 @@
 
 public plugin_init()
 {
-    register_plugin(PLUGIN_NAME, SCE_PLUGIN_VERSION, SCE_PLUGIN_AUTHOR, SCE_PLUGIN_WEBSITE, PLUGIN_DESCRIPTION);
+	register_plugin(PLUGIN_NAME, SCE_PLUGIN_VERSION, SCE_PLUGIN_AUTHOR, SCE_PLUGIN_WEBSITE, PLUGIN_DESCRIPTION);
 
-    RegisterHam(Ham_Spawn, "player", "HamFwd_PlayerSpawn_Post", true, true);
+	RegisterHam(Ham_Spawn, "player", "HamFwd_PlayerSpawn_Post", true, true);
+	RegisterHam(Ham_SC_Player_SpecialSpawn, "player", "HamFwd_PlayerSpawn_Post", true);
 }
 
 public HamFwd_PlayerSpawn_Post(iClient)
@@ -35,7 +36,7 @@ public FrameNext_PlayerSpawn_Post(iClient)
 		{
 			iOther = rgPlayers[iIndex];
 			SCEX_MakeEntsSemiclippable(iClient, iOther);
-			SCEX_EnableSemiclipFlags(iClient, iOther, SCF_ALLOW_BOOSTING | SCF_FADE);
+			SCEX_EnableSemiclipFlags(iClient, iOther, SCF_ALLOW_BOOSTING);
 		}
 	}
 }

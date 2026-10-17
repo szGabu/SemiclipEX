@@ -31,7 +31,7 @@ enum BufferFunction
 #define SCE_PLUGIN_DESCRIPTION          "A new era of Semiclip for GoldSrc"
 
 #if !defined MAX_EDICT_BITS
-#define MAX_EDICT_BITS                  11                  // How many bits to use to encode an edict. # of bits needed to represent max edicts
+#define MAX_EDICT_BITS                  13                  // How many bits to use to encode an edict. # of bits needed to represent max edicts
 #endif
 #if !defined MAX_EDICTS
 #define MAX_EDICTS                      (1<<MAX_EDICT_BITS) // Max # of edicts in a level (2048)

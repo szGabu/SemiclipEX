@@ -4,6 +4,8 @@
 #error "AMX Mod X versions 1.9 and below are not supported."
 #endif
 
+#pragma dynamic                     32768
+
 #include <engine>
 #include <fakemeta>
 #include <hamsandwich>
@@ -391,7 +393,7 @@ public MetaFwd_AddToFullPack_Post(hEntState, iEdict, iOther, iClient, iHostFlags
                 if(fDistance < g_fFadeDistance)
                 {
                     set_es(hEntState, ES_RenderMode, kRenderTransAlpha);
-                    iRenderAmt = floatround(255.0 * (fDistance / g_fFadeDistance));
+                    iRenderAmt = max(floatround(255.0 * (fDistance / g_fFadeDistance)), 1);
                     set_es(hEntState, ES_RenderAmt, iRenderAmt);
                 }
             }
