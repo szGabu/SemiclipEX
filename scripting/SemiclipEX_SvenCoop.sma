@@ -31,7 +31,7 @@ public FrameNext_PlayerSpawn_Post(iClient)
 	{
 		SCEX_MakeEntNonSemiclippableAll(iClient);
 		new rgPlayers[MAX_PLAYERS], iPlayerCount, iOther;
-		get_players_ex(rgPlayers, iPlayerCount, GetPlayers_ExcludeDead | GetPlayers_ExcludeHLTV);
+		get_players_ex(rgPlayers, iPlayerCount, GetPlayers_ExcludeHLTV);
 		for(new iIndex = 0; iIndex < iPlayerCount; iIndex++)
 		{
 			iOther = rgPlayers[iIndex];

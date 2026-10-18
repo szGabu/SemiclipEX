@@ -4,7 +4,7 @@
 #error "AMX Mod X versions 1.9 and below are not supported."
 #endif
 
-#pragma dynamic                     32768
+#pragma dynamic 65536
 
 #include <engine>
 #include <fakemeta>
@@ -59,7 +59,7 @@ public plugin_init()
     // register_forward(FM_TraceLine, "MetaFwd_TraceLine_Pre");
     // register_forward(FM_TraceLine, "MetaFwd_TraceLine_Post", true);
     
-    RegisterHam(Ham_Player_PreThink, "player", "HamFwd_PlayerPreThink_Post", false, true);
+    RegisterHam(Ham_Player_PreThink, "player", "HamFwd_PlayerPreThink_Post", true, true);
     RegisterHam(Ham_Player_PostThink, "player", "HamFwd_PlayerPostThink_Post", true, true);
 }
 
@@ -392,8 +392,8 @@ public MetaFwd_AddToFullPack_Post(hEntState, iEdict, iOther, iClient, iHostFlags
                 fDistance = entity_range(iClient, iOther)
                 if(fDistance < g_fFadeDistance)
                 {
-                    set_es(hEntState, ES_RenderMode, kRenderTransAlpha);
-                    iRenderAmt = max(floatround(255.0 * (fDistance / g_fFadeDistance)), 1);
+                    set_es(hEntState, ES_RenderMode, kRenderTransTexture);
+                    iRenderAmt = clamp(floatround(255.0 * (fDistance / g_fFadeDistance)), 125, 255);
                     set_es(hEntState, ES_RenderAmt, iRenderAmt);
                 }
             }
