@@ -4,14 +4,13 @@
 #error "AMX Mod X versions 1.9 and below are not supported."
 #endif
 
-#pragma dynamic 65536
-
 #include <engine>
 #include <fakemeta>
 #include <hamsandwich>
 #include <SemiclipEX_const>
 //#tryinclude <reapi>
 #tryinclude <orpheu>
+#include <xs>
 
 #if !defined _orpheu_included && !defined _reapi_included
 #error "At least ReAPI or Orpheu are required for SemiclipEX to work. Please install one of them."
@@ -47,10 +46,11 @@ public plugin_init()
     bind_pcvar_float(g_cvarPassthroughSpeed, g_fPassthroughSpeed);
     bind_pcvar_float(g_cvarFadeDistance, g_fFadeDistance);
 
+    register_forward(FM_AddToFullPack, "MetaFwd_AddToFullPack_Pre");
     register_forward(FM_AddToFullPack, "MetaFwd_AddToFullPack_Post", true);
     register_forward(FM_EmitSound, "MetaFwd_EmitSound_Pre");
     register_forward(FM_EmitSound, "MetaFwd_EmitSound_Post", true);
-    register_forward(FM_ShouldCollide, "MetaFwd_ShouldCollide_Pre");
+    //register_forward(FM_ShouldCollide, "MetaFwd_ShouldCollide_Pre");
     register_forward(FM_RemoveEntity, "MetaFwd_RemoveEntity_Post", true);
 
     // These two break semiclip, my original idea was to automatically handle passthrough between shots on semiclip targets 
@@ -79,6 +79,9 @@ public plugin_cfg()
     // At the time of writing, RH_SV_TestEntityPosition is a custom implementation
     // The plugin won't work on vanilla ReHLDS, and you'll need to compile it yourself with the patch
     // (Or wait until the patch is merged and released, which may take a while)
+    #if !defined RH_SV_TestEntityPosition
+    #error "At the time of writing, RH_SV_TestEntityPosition is a custom implementation.^nThe plugin won't work on vanilla ReHLDS, and you'll need to compile it yourself with the patch.^n(Or wait until the patch is merged and released, which may take a while)"
+    #endif
     RegisterHookChain(RH_SV_TestEntityPosition, "ReFwd_SV_TestEntityPosition_Pre");
     RegisterHookChain(RH_SV_TestEntityPosition, "ReFwd_SV_TestEntityPosition_Post", true);
     #endif
@@ -338,67 +341,71 @@ public MetaFwd_TraceLine_Post(Float:v1[3], Float:v2[3], iNoMonsters, iEntToSkip,
     ToggleSemiClipOnTarget(iEntToSkip, Toggle_Traces, Buffer_TraceLine, false);
 }  
 
-public MetaFwd_AddToFullPack_Post(hEntState, iEdict, iOther, iClient, iHostFlags, bPlayer, hSet)
+public MetaFwd_AddToFullPack_Pre(hEntState, iOther, iEdict, iClient, iHostFlags, bPlayer, hSet)
 {
-    if(iClient != iOther && pev_valid(iOther))
+    ToggleSemiClipOnTarget(iOther, Toggle_Standard, Buffer_AddToFullPack, true);
+
+    return FMRES_IGNORED;
+}
+
+public MetaFwd_AddToFullPack_Post(hEntState, iOther, iEdict, iClient, iHostFlags, bPlayer, hSet)
+{
+    if(iClient != iOther && pev_valid(iOther) == 2 && pev(iOther, pev_deadflag) == DEAD_NO && 
+        is_user_alive(iClient) && g_rgSemiClipTargetsFast[iClient][iOther])
     {
-        if(is_user_alive(iClient) && g_rgSemiClipTargetsFast[iClient][iOther])
+        if((pev(iOther, pev_flags) & FL_DORMANT) > 0 || (pev(iClient, pev_flags) & FL_DORMANT) > 0 )
         {
-            static iClientFlags;
-            static iOtherFlags;
+            ToggleSemiClipOnTarget(iOther, Toggle_Standard, Buffer_AddToFullPack, false);
+            return FMRES_IGNORED;
+        }
 
-            iClientFlags = pev(iClient, pev_flags);
-            iOtherFlags = pev(iOther, pev_flags);
-            
-            if((iOtherFlags & FL_DORMANT) > 0 || (iClientFlags & FL_DORMANT) > 0 )
-                return;
-
-            if(g_rgFlags[iClient][iOther] & SCF_ALLOW_BOOSTING)
-            {
-                static iClientMoveType;
-                static iOtherMoveType;
-
-                iClientMoveType = pev(iClient, pev_movetype);
-                iOtherMoveType = pev(iOther, pev_movetype);
-
-                if((iClientMoveType == MOVETYPE_FLY || iOtherMoveType == MOVETYPE_FLY) && bPlayer)
-                    set_es(hEntState, ES_Solid, SOLID_NOT); // prevents blocking of ladder players
-                else
-                {
-                    static Float:fClientAbsMin[3], Float:fClientAbsMax[3];
-                    static Float:fOtherAbsMin[3], Float:fOtherAbsMax[3];
-                    static Float:fClientVelocity[3];
-
-                    pev(iClient, pev_velocity, fClientVelocity);
-                    pev(iClient, pev_absmin, fClientAbsMin);
-                    pev(iClient, pev_absmax, fClientAbsMax);
-                    pev(iOther, pev_absmin, fOtherAbsMin);
-                    pev(iOther, pev_absmax, fOtherAbsMax);
-
-                    if( (fClientAbsMin[2]+CALIBRATION >= fOtherAbsMax[2] && 
-                        (g_fPassthroughSpeed == 0 || fClientVelocity[2] < g_fPassthroughSpeed)) || 
-                        (fOtherAbsMin[2]+CALIBRATION >= fClientAbsMax[2]))
-                        set_es(hEntState, ES_Solid, 1);
-                    else
-                        set_es(hEntState, ES_Solid, SOLID_NOT);
-                }
-            }
+        if(g_rgFlags[iClient][iOther] & SCF_ALLOW_BOOSTING)
+        {
+            if((pev(iClient, pev_movetype) == MOVETYPE_FLY || pev(iOther, pev_movetype) == MOVETYPE_FLY) && bPlayer)
+                set_es(hEntState, ES_Solid, SOLID_NOT); // prevents blocking of ladder players
             else
-                set_es(hEntState, ES_Solid, SOLID_NOT);
-
-            if(g_rgFlags[iClient][iOther] & SCF_FADE)
             {
-                static Float:fDistance, iRenderAmt;
-                fDistance = entity_range(iClient, iOther)
-                if(fDistance < g_fFadeDistance)
-                {
-                    set_es(hEntState, ES_RenderMode, kRenderTransTexture);
-                    iRenderAmt = clamp(floatround(255.0 * (fDistance / g_fFadeDistance)), 125, 255);
-                    set_es(hEntState, ES_RenderAmt, iRenderAmt);
-                }
+                static Float:fClientAbsMin[3], Float:fClientAbsMax[3];
+                static Float:fOtherAbsMin[3], Float:fOtherAbsMax[3];
+                static Float:fClientVelocity[3];
+
+                pev(iClient, pev_velocity, fClientVelocity);
+                pev(iClient, pev_absmin, fClientAbsMin);
+                pev(iClient, pev_absmax, fClientAbsMax);
+                pev(iOther, pev_absmin, fOtherAbsMin);
+                pev(iOther, pev_absmax, fOtherAbsMax);
+
+                if( (fClientAbsMin[2]+CALIBRATION < fOtherAbsMax[2] ||
+                    (g_fPassthroughSpeed != 0 && fClientVelocity[2] >= g_fPassthroughSpeed)) &&
+                    (fOtherAbsMin[2]+CALIBRATION < fClientAbsMax[2]))
+                    set_es(hEntState, ES_Solid, SOLID_NOT);
             }
         }
+        else
+            set_es(hEntState, ES_Solid, SOLID_NOT);
+
+        if(g_rgFlags[iClient][iOther] & SCF_FADE)
+        {
+            new Float:fOtherOrigin[3], Float:fClientPosition[3], Float:fClientEyeOffset[3];
+            pev(iClient, pev_origin, fClientPosition);
+            pev(iClient, pev_view_ofs, fClientEyeOffset);
+            xs_vec_add(fClientPosition, fClientEyeOffset, fClientPosition);
+            pev(iOther, pev_origin, fOtherOrigin);
+            new Float:fDistance = get_distance_f(fClientPosition, fOtherOrigin);
+            if(fDistance < g_fFadeDistance)
+            {
+                set_es(hEntState, ES_RenderMode, kRenderTransAlpha);
+                new iRenderAmt = clamp(floatround(255.0 * (fDistance / g_fFadeDistance)), 125, 255);
+                set_es(hEntState, ES_RenderAmt, iRenderAmt);
+            }
+        }
+
+        ToggleSemiClipOnTarget(iOther, Toggle_Standard, Buffer_AddToFullPack, false);
+        return FMRES_HANDLED;
     }
+
+    ToggleSemiClipOnTarget(iOther, Toggle_Standard, Buffer_AddToFullPack, false);
+    return FMRES_IGNORED;
 }
 
 public MetaFwd_ShouldCollide_Pre(iTouched, iOther)
